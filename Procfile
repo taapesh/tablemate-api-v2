@@ -1,0 +1,1 @@
+web: gunicorn tablemate_api.wsgi --log-file -
