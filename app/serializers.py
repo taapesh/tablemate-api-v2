@@ -20,10 +20,10 @@ class TableSerializer(serializers.ModelSerializer):
         )
 
 class UserSerializer(serializers.ModelSerializer):
-
+    
     class Meta:
         model = TablemateUser
-        
+
         fields = (
             "user_id",
             "email",

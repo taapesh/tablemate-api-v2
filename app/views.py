@@ -50,7 +50,7 @@ def login(request):
                 "email": user.email,
                 "first_name": user.first_name,
                 "last_name": user.last_name,
-                "email": user.active_table_id
+                "active_table_id": user.active_table_id
             },
             status=status.HTTP_200_OK)
 
