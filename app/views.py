@@ -135,7 +135,7 @@ def tables(request):
         )
 
         if created:
-            table.server_id = 1
+            table.server_id = "1"
             table.server_name = "Woodhouse"
             table.restaurant_name = request.data.get("restaurant_name")
             table.restaurant_addr = request.data.get("restaurant_addr")
