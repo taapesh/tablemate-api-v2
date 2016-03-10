@@ -142,6 +142,9 @@ def tables(request):
         table.size += 1   
         table.save()
 
+        request.user.active_table_id = table.table_id
+        request.user.save()
+
         serializer = TableSerializer(table)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
