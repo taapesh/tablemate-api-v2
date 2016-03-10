@@ -19,5 +19,5 @@ urlpatterns = [
     url(r'^user/(?P<user_id>[^/]+)/?$', views.user),
 
     # Server API
-    url(r'^server/(?P<server_id>[^/]+)/tables/?$', views.get_server_tables),
+    url(r'^server/tables/?$', views.get_server_tables),
 ]
