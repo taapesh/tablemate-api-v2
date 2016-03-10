@@ -70,18 +70,6 @@ def logout(request):
     Token.objects.filter(user=request.user).delete()
     return Response({"message": "Logged out"}, status=status.HTTP_200_OK)
 
-@api_view(["GET", "DELETE"])
-@authentication_classes([TokenAuthentication])
-@permission_classes([permissions.IsAuthenticated])
-def user(request):
-    if request.method == "GET":
-        serializer = UserSerializer(request.user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    elif request.method == "DELETE":
-        request.user.delete()
-        return Response({"message": "User deleted"}, status=status.HTTP_200_OK)
-
 @api_view(["GET"])
 @authentication_classes([TokenAuthentication])
 @permission_classes([permissions.IsAuthenticated])
@@ -101,17 +89,6 @@ def get_server_tables(request):
     tables = Table.objects.filter(server_id=request.user.user_id)
     serializer = TableSerializer(tables, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
-
-@api_view(["GET"])
-@authentication_classes([TokenAuthentication])
-@permission_classes([permissions.IsAuthenticated])
-def get_table(request, table_id):
-    try:
-        table = Table.objects.get(table_id=table_id)
-        serializer = TableSerializer(table)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    except Table.DoesNotExist:
-        return Response({"message": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
 @api_view(["GET", "POST", "DELETE"])
 @authentication_classes([TokenAuthentication])
@@ -148,3 +125,20 @@ def tables(request):
         serializer = TableSerializer(table)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+@api_view(["POST"])
+@authentication_classes([TokenAuthentication])
+@permission_classes([permissions.IsAuthenticated])
+def request_service(request):
+    try:
+        with transaction.atomic():
+            table = Table.objects.get(table_id=request.user.active_table_id)
+
+            if not table.requested:
+                table.requested = True
+                table.save()
+                return Response({"message": "Request made"}, status=status.HTTP_200_OK)
+            else:
+                return Response({"message": "Request already made"}, status=status.HTTP_409_CONFLICT)
+
+    except Table.DoesNotExist:
+        return Response({"message": "Not found"}, status=status.HTTP_404_NOT_FOUND)
