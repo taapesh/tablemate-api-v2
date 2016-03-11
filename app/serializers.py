@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from models import TablemateUser, Table
+from models import TablemateUser, Table, ServerRegistration
 
 class TableSerializer(serializers.ModelSerializer):
 
