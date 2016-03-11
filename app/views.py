@@ -87,7 +87,7 @@ def clear_tests(request):
     TablemateUser.objects.all().delete()
     ServerRegistration.objects.all().delete()
     Table.objects.all().delete()
-    return Response("Deleted", status=status.HTTP_200_OK)
+    return Response({"message": "Deleted"}, status=status.HTTP_200_OK)
 
 @api_view(["POST"])
 @authentication_classes([TokenAuthentication])
