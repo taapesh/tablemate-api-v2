@@ -28,6 +28,7 @@ class ServerRegistration(models.Model):
     restaurant_addr = models.CharField(max_length=255)
     time_start  = models.DateTimeField(auto_now_add=True)
     time_end    = models.DateTimeField(null=True)
+    active      = models.BooleanField(default=False)
 
 class TablemateUserManager(BaseUserManager):
     def create_user(self, first_name, last_name, email, password):

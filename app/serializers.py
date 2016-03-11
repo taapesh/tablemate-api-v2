@@ -20,7 +20,7 @@ class TableSerializer(serializers.ModelSerializer):
         )
 
 class UserSerializer(serializers.ModelSerializer):
-    
+
     class Meta:
         model = TablemateUser
 
@@ -31,3 +31,15 @@ class UserSerializer(serializers.ModelSerializer):
             "last_name",
             "active_table_id",
         )
+
+class RegistrationSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = ServerRegistration
+
+    fields = (
+        "server_id",
+        "restaurant_name",
+        "restaurant_addr",
+        "active",
+    )

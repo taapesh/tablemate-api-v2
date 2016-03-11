@@ -9,6 +9,7 @@ urlpatterns = [
     url(r'^auth/login/?$', views.login),
     url(r'^auth/logout/?$', views.logout),
     url(r'^auth/register/?$', views.register),
+    url(r'^auth/register_server/?$', views.register_server),
 
     # Table API
     url(r'^table/request_service/?$', views.request_service),

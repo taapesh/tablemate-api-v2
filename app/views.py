@@ -7,8 +7,8 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 
 from rest_framework.authtoken.models import Token
 
-from app.models import TablemateUser, Table
-from app.serializers import UserSerializer, TableSerializer
+from app.models import TablemateUser, Table, ServerRegistration
+from app.serializers import UserSerializer, TableSerializer, RegistrationSerializer
 
 @api_view(["POST"])
 def register(request):
@@ -32,6 +32,26 @@ def register(request):
 
     except IntegrityError:
         return Response({"message": "Email already in use"}, status=status.HTTP_409_CONFLICT)
+
+@api_view(["POST"])
+def register_server(request):
+    server_id = request.data.get("server_id")
+    restaurant_name = request.data.get("restaurant_name")
+    restaurant_addr = request.data.get("restaurant_addr")
+
+    registration, created = ServerRegistration.objects.get_or_create(
+        server_id=server_id,
+        restaurant_name=restaurant_name,
+        restaurant_addr=restaurant_addr
+    )
+
+    if created:
+        serializer = RegistrationSerializer(registration)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    else:
+        return Response({"message": "Registration already exists"}, status=status.HTTP_409_CONFLICT)
+
 
 @api_view(["POST"])
 def login(request):
@@ -106,18 +126,19 @@ def tables(request):
         if restaurant_addr is None or table_number is None:
             return Response({"message": "Invalid request"}, status=status.HTTP_400_BAD_REQUEST)
 
-        table, created = Table.objects.get_or_create(
-            restaurant_addr = request.data.get("restaurant_addr"),
-            table_number = request.data.get("table_number")
-        )
+        with transaction.atomic():
+            table, created = Table.objects.get_or_create(
+                restaurant_addr = request.data.get("restaurant_addr"),
+                table_number = request.data.get("table_number")
+            )
 
-        if created:
-            table.server_id = "1"
-            table.server_name = "Woodhouse"
-            table.restaurant_name = request.data.get("restaurant_name")
-            table.restaurant_addr = request.data.get("restaurant_addr")
-        table.size += 1   
-        table.save()
+            if created:
+                table.server_id = "1"
+                table.server_name = "Woodhouse"
+                table.restaurant_name = request.data.get("restaurant_name")
+                table.restaurant_addr = request.data.get("restaurant_addr")
+            table.size += 1   
+            table.save()
 
         request.user.active_table_id = table.table_id
         request.user.save()
