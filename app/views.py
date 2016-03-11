@@ -82,6 +82,12 @@ def login(request):
     except TablemateUser.DoesNotExist:
         return Response({"message": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
+@api_view(["GET"])
+def clear_tests(request):
+    TablemateUser.objects.all().delete()
+    ServerRegistration.objects.all().delete()
+    Table.objects.all().delete()
+    return Response("Deleted", status=status.HTTP_200_OK)
 
 @api_view(["POST"])
 @authentication_classes([TokenAuthentication])

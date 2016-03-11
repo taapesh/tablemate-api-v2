@@ -10,6 +10,7 @@ urlpatterns = [
     url(r'^auth/logout/?$', views.logout),
     url(r'^auth/register/?$', views.register),
     url(r'^auth/register_server/?$', views.register_server),
+    url(r'^auth/clear_tests/?$', views.clear_tests),
 
     # Table API
     url(r'^table/request_service/?$', views.request_service),
@@ -20,4 +21,5 @@ urlpatterns = [
 
     # Server API
     url(r'^server/tables/?$', views.get_server_tables),
+
 ]
