@@ -37,9 +37,9 @@ class RegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServerRegistration
 
-    fields = (
-        "server_id",
-        "restaurant_name",
-        "restaurant_addr",
-        "active",
-    )
+        fields = (
+            "server_id",
+            "restaurant_name",
+            "restaurant_addr",
+            "active",
+        )
