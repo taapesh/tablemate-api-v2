@@ -128,30 +128,30 @@ def get_server_tables(request):
 @permission_classes([permissions.IsAuthenticated])
 def create_table(request):
     restaurant_addr = request.data.get("restaurant_addr")
-        table_number = request.data.get("table_number")
+    table_number = request.data.get("table_number")
 
-        if restaurant_addr is None or table_number is None:
-            return Response({"message": "Invalid request"}, status=status.HTTP_400_BAD_REQUEST)
+    if restaurant_addr is None or table_number is None:
+        return Response({"message": "Invalid request"}, status=status.HTTP_400_BAD_REQUEST)
 
-        with transaction.atomic():
-            table, created = Table.objects.get_or_create(
-                restaurant_addr = request.data.get("restaurant_addr"),
-                table_number = request.data.get("table_number")
-            )
+    with transaction.atomic():
+        table, created = Table.objects.get_or_create(
+            restaurant_addr = request.data.get("restaurant_addr"),
+            table_number = request.data.get("table_number")
+        )
 
-            if created:
-                table.server_id = "1"
-                table.server_name = "Woodhouse"
-                table.restaurant_name = request.data.get("restaurant_name")
-                table.restaurant_addr = request.data.get("restaurant_addr")
-            table.size += 1   
-            table.save()
+        if created:
+            table.server_id = "1"
+            table.server_name = "Woodhouse"
+            table.restaurant_name = request.data.get("restaurant_name")
+            table.restaurant_addr = request.data.get("restaurant_addr")
+        table.size += 1   
+        table.save()
 
-        request.user.active_table_id = table.table_id
-        request.user.save()
+    request.user.active_table_id = table.table_id
+    request.user.save()
 
-        serializer = TableSerializer(table)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    serializer = TableSerializer(table)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 @api_view(["POST"])
 @authentication_classes([TokenAuthentication])
