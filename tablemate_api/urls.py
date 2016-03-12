@@ -14,12 +14,12 @@ urlpatterns = [
 
     # Table API
     url(r'^table/request_service/?$', views.request_service),
-    url(r'^tables/?$', views.tables),
+    url(r'^table/create_table/?$', views.create_table),
 
     # User API
     url(r'^user/table/?$', views.get_user_table),
 
     # Server API
     url(r'^server/tables/?$', views.get_server_tables),
-
+    url(r'^server/start_serving/?$', views.start_serving),
 ]

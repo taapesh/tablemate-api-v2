@@ -108,6 +108,13 @@ def get_user_table(request):
     except Table.DoesNotExist:
         return Response({"message": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
+@api_view(["POST"])
+@authentication_classes([TokenAuthentication])
+@permission_classes([permissions.IsAuthenticated])
+def start_serving(request):
+    ServerRegistration.objects.filter(server_id=request.user.user_id).update(active=True)
+    return Response({"message": "Now serving"}, status=status.HTTP_200_OK)
+
 @api_view(["GET"])
 @authentication_classes([TokenAuthentication])
 @permission_classes([permissions.IsAuthenticated])
@@ -116,17 +123,11 @@ def get_server_tables(request):
     serializer = TableSerializer(tables, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
-@api_view(["GET", "POST", "DELETE"])
+@api_view(["POST"])
 @authentication_classes([TokenAuthentication])
 @permission_classes([permissions.IsAuthenticated])
-def tables(request):
-    if request.method == "GET":
-        tables = Table.objects.all()
-        serializer = TableSerializer(tables, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    elif request.method == "POST":
-        restaurant_addr = request.data.get("restaurant_addr")
+def create_table(request):
+    restaurant_addr = request.data.get("restaurant_addr")
         table_number = request.data.get("table_number")
 
         if restaurant_addr is None or table_number is None:
