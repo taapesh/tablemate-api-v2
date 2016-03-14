@@ -128,30 +128,58 @@ def get_server_tables(request):
 @permission_classes([permissions.IsAuthenticated])
 def create_table(request):
     restaurant_addr = request.data.get("restaurant_addr")
+    restaurant_name = request.data.get("restaurant_name")
     table_number = request.data.get("table_number")
-
-    if restaurant_addr is None or table_number is None:
-        return Response({"message": "Invalid request"}, status=status.HTTP_400_BAD_REQUEST)
 
     with transaction.atomic():
         table, created = Table.objects.get_or_create(
-            restaurant_addr = request.data.get("restaurant_addr"),
-            table_number = request.data.get("table_number")
+            restaurant_name=restaurant_name,
+            restaurant_addr=restaurant_addr,
+            table_number=table_number
         )
 
         if created:
-            table.server_id = "1"
-            table.server_name = "Woodhouse"
-            table.restaurant_name = request.data.get("restaurant_name")
-            table.restaurant_addr = request.data.get("restaurant_addr")
-        table.size += 1   
-        table.save()
+            server_id = find_server(restaurant_addr)
+            
+            if server_id == -1:
+                table.delete()
+                return Response({"message": "No server available"}, status=status.HTTP_409_CONFLICT)
 
-    request.user.active_table_id = table.table_id
-    request.user.save()
+            else:
+                server_name = TablemateUser.objects.get(user_id=server_id)
+                table.server_id = server_id
+                table.server_name = server_name
+                table.size += 1
+                request.user.active_table_id = table.table_id
+                request.user.save()
+                table.save()
+
+        else:
+            table.size += 1   
+            table.save()
 
     serializer = TableSerializer(table)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+def find_server(restaurant_addr):
+    servers = list(ServerRegistration.objects.filter(
+        restaurant_addr=restaurant_addr,
+        active=True
+    ))
+
+    if not servers:
+        return -1
+
+    min_load_server_id = -1
+    min_load = 10000
+
+    for server in servers:
+        load = Table.objects.filter(server_id=server.server_id).count()
+        if load < min_load:
+            min_load = load
+            min_load_server_id = server.server_id
+
+    return min_load_server_id
 
 @api_view(["POST"])
 @authentication_classes([TokenAuthentication])
