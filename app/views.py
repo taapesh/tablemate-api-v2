@@ -146,9 +146,8 @@ def create_table(request):
                 return Response({"message": "No server available"}, status=status.HTTP_409_CONFLICT)
 
             else:
-                server_name = TablemateUser.objects.get(user_id=server_id)
                 table.server_id = server_id
-                table.server_name = server_name
+                table.server_name = TablemateUser.objects.get(user_id=server_id).first_name
                 table.size += 1
                 request.user.active_table_id = table.table_id
                 request.user.save()
