@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from models import TablemateUser, Table, ServerRegistration
+from models import TablemateUser, Table, Server
 
 class TableSerializer(serializers.ModelSerializer):
 
@@ -8,11 +8,9 @@ class TableSerializer(serializers.ModelSerializer):
 
         fields = (
             "table_id",
+            "server",
+            "restaurant",
             "size",
-            "server_id",
-            "server_name",
-            "restaurant_name",
-            "restaurant_addr",
             "table_number",
             "requested",
             "time_start",
@@ -32,10 +30,10 @@ class UserSerializer(serializers.ModelSerializer):
             "active_table_id",
         )
 
-class RegistrationSerializer(serializers.ModelSerializer):
+class ServerSerializer(serializers.ModelSerializer):
 
     class Meta:
-        model = ServerRegistration
+        model = Server
 
         fields = (
             "server_id",

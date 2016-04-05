@@ -1,0 +1,14 @@
+[
+  {
+    "name": "Philadelphia Roll",
+    "category": "Rolls",
+    "price": "6.00",
+    "description": "Cream cheese, avocado, salmon, sesame seeds"
+  },
+  {
+    "name": "California Roll",
+    "category": "Rolls",
+    "price": "6.00",
+    "description": "Imitation crab, avocado, cucumber"
+  }
+]

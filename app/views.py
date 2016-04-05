@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.core import serializers
 from django.db import transaction, IntegrityError
 from rest_framework import status, permissions
 from rest_framework.response import Response
@@ -7,121 +8,32 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 
 from rest_framework.authtoken.models import Token
 
-from app.models import TablemateUser, Table, ServerRegistration
-from app.serializers import UserSerializer, TableSerializer, RegistrationSerializer
-
-@api_view(["POST"])
-def register(request):
-    email = request.data.get("email")
-    password = request.data.get("password")
-    first_name = request.data.get("first_name")
-    last_name = request.data.get("last_name")
-    
-    try:
-        with transaction.atomic():
-            user = TablemateUser.objects.create_user(first_name, last_name, email, password)
-            token = Token.objects.get_or_create(user=user)
-
-            return Response({
-                "auth_token": token[0].key,
-                "user_id": user.user_id,
-                "email": user.email,
-                "first_name": user.first_name,
-                "last_name": user.last_name
-            }, status=status.HTTP_201_CREATED)
-
-    except IntegrityError:
-        return Response({"message": "Email already in use"}, status=status.HTTP_409_CONFLICT)
-
-@api_view(["POST"])
-def register_server(request):
-    server_id = request.data.get("server_id")
-    restaurant_name = request.data.get("restaurant_name")
-    restaurant_addr = request.data.get("restaurant_addr")
-
-    registration, created = ServerRegistration.objects.get_or_create(
-        server_id=server_id,
-        restaurant_name=restaurant_name,
-        restaurant_addr=restaurant_addr
-    )
-
-    if created:
-        serializer = RegistrationSerializer(registration)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    else:
-        return Response({"message": "Registration already exists"}, status=status.HTTP_409_CONFLICT)
-
-
-@api_view(["POST"])
-def login(request):
-    email = request.data.get("email")
-    password = request.data.get("password")
-
-    try:
-        user = TablemateUser.objects.get(email=email)
-        if user.check_password(password):
-            token = Token.objects.get_or_create(user=user)
-
-            return Response(
-            {
-                "auth_token": token[0].key,
-                "user_id": user.user_id,
-                "email": user.email,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "active_table_id": user.active_table_id
-            },
-            status=status.HTTP_200_OK)
-
-        else:
-            return Response({
-                "message": "Invalid credentials"
-            }, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
-    
-    except TablemateUser.DoesNotExist:
-        return Response({"message": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-
-@api_view(["GET"])
-def clear_tests(request):
-    TablemateUser.objects.all().delete()
-    ServerRegistration.objects.all().delete()
-    Table.objects.all().delete()
-    return Response({"message": "Deleted"}, status=status.HTTP_200_OK)
-
-@api_view(["POST"])
-@authentication_classes([TokenAuthentication])
-@permission_classes([permissions.IsAuthenticated])
-def logout(request):
-    Token.objects.filter(user=request.user).delete()
-    return Response({"message": "Logged out"}, status=status.HTTP_200_OK)
+from app.models import TablemateUser, Table, Server, Restaurant, MenuItem, MenuCategory
 
 @api_view(["GET"])
 @authentication_classes([TokenAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def get_user_table(request):
-    try:
-        table = Table.objects.get(table_id=request.user.active_table_id)
-        serializer = TableSerializer(table)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    except Table.DoesNotExist:
+    table = request.user.table
+    if table is not None:
+        return Response(table.to_json(), status=status.HTTP_200_OK)
+    else:
         return Response({"message": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
 @api_view(["POST"])
 @authentication_classes([TokenAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def start_serving(request):
-    ServerRegistration.objects.filter(server_id=request.user.user_id).update(active=True)
+    restaurant = Restaurant.objects.get(address=request.data.get("restaurant_addr"))
+    Server.objects.filter(user=request.user, restaurant=restaurant).update(active=True)
     return Response({"message": "Now serving"}, status=status.HTTP_200_OK)
 
 @api_view(["GET"])
 @authentication_classes([TokenAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def get_server_tables(request):
-    tables = Table.objects.filter(server_id=request.user.user_id)
-    serializer = TableSerializer(tables, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+    tables = Table.objects.filter(server=Server.objects.get(user=request.user))
+    return Response([t.to_json() for t in tables], status=status.HTTP_200_OK)
 
 @api_view(["POST"])
 @authentication_classes([TokenAuthentication])
@@ -131,69 +43,144 @@ def create_table(request):
     restaurant_name = request.data.get("restaurant_name")
     table_number = request.data.get("table_number")
 
+    try:
+        restaurant = Restaurant.objects.get(name=restaurant_name, address=restaurant_addr)
+    except Restaurant.DoesNotExist:
+        return Response({"message": "Restaurant does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
     with transaction.atomic():
-        table, created = Table.objects.get_or_create(
-            restaurant_name=restaurant_name,
-            restaurant_addr=restaurant_addr,
-            table_number=table_number
-        )
+        table, created = Table.objects.get_or_create(restaurant=restaurant, table_number=table_number)
 
         if created:
-            server_id = find_server(restaurant_addr)
+            server = find_server(restaurant)
             
-            if server_id == -1:
+            if server is None:
                 table.delete()
                 return Response({"message": "No server available"}, status=status.HTTP_409_CONFLICT)
 
             else:
-                table.server_id = server_id
-                table.server_name = TablemateUser.objects.get(user_id=server_id).first_name
-                table.size += 1
-                request.user.active_table_id = table.table_id
-                request.user.save()
-                table.save()
+                table.server = server
 
-        else:
-            table.size += 1   
-            table.save()
+        request.user.table = table
+        request.user.save()
+        table.size += 1   
+        table.save()
 
-    serializer = TableSerializer(table)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+    return Response(table.to_json(), status=status.HTTP_200_OK)
 
-def find_server(restaurant_addr):
-    servers = list(ServerRegistration.objects.filter(
-        restaurant_addr=restaurant_addr,
-        active=True
-    ))
+def find_server(restaurant):
+    servers = list(Server.objects.filter(restaurant=restaurant, active=True))
 
     if not servers:
-        return -1
+        return None
 
-    min_load_server_id = -1
+    min_load_server = None
     min_load = 10000
 
     for server in servers:
-        load = Table.objects.filter(server_id=server.server_id).count()
+        load = Table.objects.filter(server=server).count()
         if load < min_load:
             min_load = load
-            min_load_server_id = server.server_id
+            min_load_server = server
 
-    return min_load_server_id
+    return min_load_server
 
 @api_view(["POST"])
 @authentication_classes([TokenAuthentication])
 @permission_classes([permissions.IsAuthenticated])
 def request_service(request):
+    with transaction.atomic():
+        table = request.user.table
+
+        if not table.requested:
+            table.requested = True
+            table.save()
+            return Response({"message": "Request made"}, status=status.HTTP_200_OK)
+        else:
+            return Response({"message": "Request already made"}, status=status.HTTP_409_CONFLICT)
+
+@api_view(["POST"])
+@authentication_classes([TokenAuthentication])
+@permission_classes([permissions.IsAuthenticated])
+def create_order(request):
+    name = request.data.get("name")
+    price = request.data.get("price")
+    category = request.data.get("category")
+
     try:
-        with transaction.atomic():
-            table = Table.objects.get(table_id=request.user.active_table_id)
+        item = MenuItem.objects.get(name=name, price=price, category=category)
+    except MenuItem.DoesNotExist:
+        return Response({"message": "Menu item does not exist"}, status=status.HTTP_404_NOT_FOUND)
 
-            if not table.requested:
-                table.requested = True
-                table.save()
-                return Response({"message": "Request made"}, status=status.HTTP_200_OK)
-            else:
-                return Response({"message": "Request already made"}, status=status.HTTP_409_CONFLICT)
 
-    except Table.DoesNotExist:
-        return Response({"message": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+@api_view(["GET"])
+@authentication_classes([TokenAuthentication])
+@permission_classes([permissions.IsAuthenticated])
+def get_table_orders(request):
+    name = request.data.get("name")
+    price = request.data.get("price")
+
+@api_view(["POST"])
+def create_menu_category(request):
+    try:
+        restaurant = Restaurant.objects.get(restaurant_id=request.data.get("restaurant_id")
+    except Restaurant.DoesNotExist:
+        return Response({"message": "Restaurant does not exist"})
+
+    name = request.data.get("name")
+
+    category, created = MenuCategory.objects.get_or_create(
+        restaurant=restaurant, name=name)
+
+    if created:
+        return Response({
+            "message": "Created category " + category.name}, status=status.HTTP_201_CREATED)
+    else:
+        return Response({"message": "Category already exists"}, status=status.HTTP_409_CONFLICT)
+
+@api_view(["POST"])
+def create_menu_item(request):
+    restaurant_name = request.data.get("restaurant_name")
+    restaurant_addr = request.data.get("restaurant_addr")
+
+    try:
+        restaurant = Restaurant.objects.get(name=restaurant_name, address=restaurant_addr)
+    except Restaurant.DoesNotExist:
+        return Response({"message": "Restaurant does not exist"})
+
+    name = request.data.get("name")
+    price = request.data.get("price")
+    category = request.data.get("category")
+    description = request.data.get("description")
+
+    item, created = MenuItem.objects.get_or_create(
+        name=name, price=price, category=category, description=description, restaurant=restaurant)
+
+    if created:
+        return Response(item.to_json(), status=status.HTTP_201_CREATED)
+    else:
+        return Response({"message": "Menu item already exists"}, status=status.HTTP_409_CONFLICT)
+
+@api_view(["GET"])
+def get_menu(request):
+    restaurant_name = request.GET.get("restaurant_name", "")
+    restaurant_addr = request.GET.get("restaurant_addr", "")
+
+    try:
+        restaurant = Restaurant.objects.get(name=restaurant_name, address=restaurant_addr)
+        items = MenuItem.objects.filter(restaurant=restaurant)
+        return Response([item.to_json() for item in items], status=status.HTTP_200_OK)
+
+    except Restaurant.DoesNotExist:
+        return Response({"message": "Restaurant does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(["GET"])
+def get_menu_item(request):
+    item_id = request.GET.get("item_id", "")
+
+    try:
+        item = MenuItem.objects.get(item_id=item_id)
+        return Response(item.to_json(), status=status.HTTP_200_OK)
+    except MenuItem.DoesNotExist:
+        return Response({"message": "Menu item does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
