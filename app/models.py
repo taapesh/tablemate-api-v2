@@ -1,11 +1,13 @@
 from __future__ import unicode_literals
 
+from decimal import Decimal
+import uuid
+
+from django.db import models
+
 from django.contrib.auth.models import (
     BaseUserManager, AbstractBaseUser
 )
-
-from django.db import models
-import uuid
 
 
 class TablemateUserManager(BaseUserManager):
@@ -32,6 +34,7 @@ class TablemateUserManager(BaseUserManager):
         user.is_admin = True
         user.save(using=self._db)
         return user
+
 
 class TablemateUser(AbstractBaseUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -76,28 +79,33 @@ class TablemateUser(AbstractBaseUser):
     def is_staff(self):
         return self.is_admin
 
+
 class Table(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     server = models.ForeignKey("Server", related_name="tables")
     place = models.ForeignKey("Place", related_name="tables")
     requested = models.BooleanField()
 
+
 class Server(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     place = models.ForeignKey("Place", related_name="servers")
     user = models.ForeignKey("TablemateUser", related_name="servers")
+
 
 class Tab(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     table = models.ForeignKey("Table", related_name="tabs")
     user = models.ForeignKey("TablemateUser", related_name="tabs")
     active = models.BooleanField(default=True)
-    total = models.DecimalField(max_digits=8, decimal_places=2)
+    total = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal(0.00))
+
 
 class Order(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     tab = models.ForeignKey("Tab", related_name="orders")
     total = models.DecimalField(max_digits=8, decimal_places=2)
+
 
 class OrderItem(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -105,29 +113,42 @@ class OrderItem(models.Model):
     item = models.ForeignKey("MenuItem", related_name="items")
     price = models.DecimalField(max_digits=8, decimal_places=2)
 
+
 class Menu(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    place = models.ForeignKey("Place", related_name="menus")
+
 
 class MenuItem(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     menu = models.ForeignKey("Menu", related_name="items")
-    category = models.ForeignKey("Category", related_name="items")
+    category = models.ForeignKey("MenuCategory", related_name="items")
     price = models.DecimalField(max_digits=8, decimal_places=2)
+
 
 class MenuCategory(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     menu = models.ForeignKey("Menu", related_name="categories")
     name = models.CharField(max_length=255)
 
+
 class Place(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
-    address = models.CharField(max_length=255)
-    menu = models.OneToOneField("Menu")
+    address = models.CharField(max_length=255, unique=True)
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "address": self.address,
+        }
+
 
 class Review(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey("TablemateUser", related_name="reviews")
     server = models.ForeignKey("Server", related_name="reviews")
+    place = models.ForeignKey("Place", related_name="reviews")
     rating = models.IntegerField(null=False)
     comment = models.TextField()
