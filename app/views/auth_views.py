@@ -19,7 +19,6 @@ def register(request):
         user = auth_service.register(first_name, last_name, email, password)
         auth_service.get_auth_token(user)
         return Response(user.to_json(), status=status.HTTP_201_CREATED)
-
     except IntegrityError:
         return Response({"message": "That email is already in use"}, status=status.HTTP_409_CONFLICT)
 
