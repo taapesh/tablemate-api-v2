@@ -7,122 +7,6 @@ from django.contrib.auth.models import (
 from django.db import models
 import uuid
 
-class Table(models.Model):
-    table_id    = models.CharField(primary_key=True, max_length=64, editable=False, blank=True, default=uuid.uuid4)
-    server      = models.ForeignKey('Server', null=True, blank=True)       # Each table belongs to one server
-    restaurant  = models.ForeignKey('Restaurant')   # Each table belongs to one restaurant
-    size        = models.IntegerField(default=0)
-    table_number    = models.IntegerField(default=-1)
-    requested       = models.BooleanField(default=False)
-    time_start      = models.DateTimeField(auto_now_add=True)
-    active          = models.BooleanField(default=True)
-
-    def to_json(self):
-        return {
-            "table_id": self.table_id,
-            "server": self.server.to_json(),
-            "restaurant": self.restaurant.to_json(),
-            "size": self.size,
-            "table_number": self.table_number,
-            "requested": self.requested,
-            "time_start": self.time_start,
-            "active": self.active,
-        }
-
-class Restaurant(models.Model):
-    restaurant_id = models.CharField(primary_key=True, max_length=64, editable=False, blank=True, default=uuid.uuid4)
-    name = models.CharField(max_length=255)
-    address = models.CharField(max_length=255)
-
-    def to_json(self):
-        return {
-            "restaurant_id": self.restaurant_id,
-            "name": self.name,
-            "address": self.address
-        }
-
-class Server(models.Model):
-    server_id   = models.CharField(primary_key=True, max_length=64, editable=False, blank=True, default=uuid.uuid4)
-    restaurant  = models.ForeignKey('Restaurant')
-    user        = models.ForeignKey('TablemateUser')
-    time_start  = models.DateTimeField(auto_now_add=True)
-    time_end    = models.DateTimeField(null=True)
-    active      = models.BooleanField(default=True)
-
-    def to_json(self):
-        return {
-            "server_id": self.server_id,
-            "first_name": self.user.first_name,
-            "last_name": self.user.last_name,
-            "email": self.user.email,
-            "restaurant": self.restaurant.to_json(),
-            "time_start": self.time_start,
-            "time_end": self.time_end,
-            "active": self.active
-        }
-
-class MenuCategory(models.Model):
-    category_id = models.CharField(primary_key=True, max_length=64, editable=False, blank=True, default=uuid.uuid4)
-    name = models.CharField(max_length=100)
-    restaurant = models.ForeignKey('Restaurant')
-
-    def to_json(self):
-        return {
-            "category_id": self.category_id,
-            "name": self.name,
-        }
-
-class MenuItem(models.Model):
-    item_id = models.CharField(primary_key=True, max_length=64, editable=False, blank=True, default=uuid.uuid4)
-    restaurant = models.ForeignKey('Restaurant')
-    category = models.ForeignKey('MenuCategory')
-    name = models.CharField(max_length=64)
-    price = models.DecimalField(max_digits=5, decimal_places=2)
-    description = models.TextField(null=True, blank=True)
-
-    def to_json(self):
-        return {
-            "item_id": self.item_id,
-            "name": self.name,
-            "category": self.category.name,
-            "price": str(self.price),
-            "description": self.description,
-            "restaurant": self.restaurant.to_json(),
-        }
-
-class Order(models.Model):
-    order_id = models.CharField(primary_key=True, max_length=64, editable=False, blank=True, default=uuid.uuid4)
-    item = models.ForeignKey('MenuItem') # which menu item?
-    table = models.ForeignKey('Table') # which table?
-    customer = models.ForeignKey('TablemateUser') # who ordered it?
-    receipt = models.ForeignKey('Receipt', null=True, blank=True) # The receipt that this order belongs to
-    time = models.DateTimeField(auto_now_add=True)
-    active = models.BooleanField(default=False)
-    pending = models.BooleanField(default=True)
-
-    def to_json(self):
-        return {
-            "order_id": self.order_id,
-            "item": self.item.to_json(),
-            "active": self.active,
-            "pending": self.pending,
-            "customer": self.customer.to_json(),
-        }
-
-class Receipt(models.Model):
-    receipt_id = models.CharField(primary_key=True, max_length=64, editable=False, blank=True, default=uuid.uuid4)
-    customer = models.ForeignKey('TablemateUser')  # Each receipt belongs to one customer
-    restaurant = models.ForeignKey('Restaurant') # Each receipt belongs to one restaurant
-    total_bill = models.DecimalField(max_digits=6, decimal_places=2, default=0.00)
-    time = models.DateTimeField(auto_now_add=True)
-
-    def to_json(self):
-        return {
-            "receipt_id": self.receipt_id,
-            "restaurant": self.restaurant.to_json(),
-            "total_bill": str(self.total_bill),
-            "time": self.time,
-        }
 
 class TablemateUserManager(BaseUserManager):
     def create_user(self, first_name, last_name, email, password):
@@ -150,25 +34,27 @@ class TablemateUserManager(BaseUserManager):
         return user
 
 class TablemateUser(AbstractBaseUser):
-    user_id     = models.CharField(primary_key=True, max_length=64, editable=False, blank=True, default=uuid.uuid4)
-    email       = models.EmailField(verbose_name="email address", max_length=255, unique=True,)
-    first_name  = models.CharField(max_length=255)
-    last_name   = models.CharField(max_length=255)
-    is_active   = models.BooleanField(default=True)
-    is_admin    = models.BooleanField(default=False)
-    table = models.ForeignKey('Table', null=True, blank=True) # Each customer belongs to one table
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    email = models.EmailField(verbose_name="email address", max_length=255, unique=True,)
+    first_name = models.CharField(max_length=255)
+    last_name = models.CharField(max_length=255)
+    is_active = models.BooleanField(default=True)
+    is_admin = models.BooleanField(default=False)
+    created = models.DateTimeField(auto_now_add=True)
+    token = models.CharField(max_length=255, blank=True)
 
     objects = TablemateUserManager()
 
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["password"]
+    REQUIRED_FIELDS = ["password", "first_name", "last_name"]
 
     def to_json(self):
         return {
-            "user_id": self.user_id,
+            "id": self.id,
             "email": self.email,
             "first_name": self.first_name,
             "last_name": self.last_name,
+            "token": self.token
         }
 
     def get_full_name(self):
@@ -189,4 +75,35 @@ class TablemateUser(AbstractBaseUser):
     @property
     def is_staff(self):
         return self.is_admin
+
+class Table(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    server = models.ForeignKey('Server')
+
+class Server(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey('TablemateUser')
+
+class Tab(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    table = models.ForeignKey('Table')
+
+class Order(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+class OrderItem(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+class Menu(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+class MenuItem(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+class MenuCategory(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+class Place(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
 
